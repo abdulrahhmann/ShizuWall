@@ -8,12 +8,17 @@ import java.io.InputStreamReader
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Root-backed incoming connection interceptor using iptables/ip6tables INPUT chains
- * and live kernel log streaming.
+ * Root-backed incoming connection interceptor using iptables/ip6tables INPUT/OUTPUT chains,
+ * optional nftables/arptables ARP Layer-2 stealth, and live kernel log streaming.
  */
 class RootIncomingMonitor(
     private val onPacket: (ParsedIncomingPacket) -> Unit
 ) {
+
+    data class ApplyResult(
+        val success: Boolean,
+        val stealthStatus: IncomingRuleStore.StealthStatus
+    )
 
     private val running = AtomicBoolean(false)
 
@@ -23,13 +28,51 @@ class RootIncomingMonitor(
     @Volatile
     private var watcherThread: Thread? = null
 
-    suspend fun applyRules(rules: List<IncomingRule>, includeIpv6: Boolean): Boolean {
-        val script = IncomingIptables.buildSetupScript(rules, includeIpv6)
+    suspend fun applyRules(
+        rules: List<IncomingRule>,
+        includeIpv6: Boolean,
+        stealthLan: Boolean,
+        gatewayIpv4: String?
+    ): ApplyResult {
+        val script = IncomingIptables.buildSetupScript(
+            rules = rules,
+            includeIpv6 = includeIpv6,
+            stealthLan = stealthLan,
+            gatewayIpv4 = gatewayIpv4
+        )
         val result = RootShellExecutor().exec(script)
         if (!result.success) {
             Log.w(TAG, "Failed to apply incoming iptables rules (rc=${result.exitCode}): ${result.stderr}")
+            return ApplyResult(false, IncomingRuleStore.StealthStatus())
         }
-        return result.success
+
+        var arpBackend: String? = null
+        var resolvedGw: String? = gatewayIpv4
+        var outboundOn = false
+        for (line in result.stdout.lineSequence()) {
+            val trimmed = line.trim()
+            when {
+                trimmed.startsWith("SHIZUWALL_CAP_ARP=") -> {
+                    val v = trimmed.removePrefix("SHIZUWALL_CAP_ARP=").trim()
+                    arpBackend = v.takeIf { it == "nft" || it == "arptables" }
+                }
+                trimmed.startsWith("SHIZUWALL_CAP_OUT=") -> {
+                    outboundOn = trimmed.removePrefix("SHIZUWALL_CAP_OUT=").trim() == "on"
+                }
+                trimmed.startsWith("SHIZUWALL_GW=") -> {
+                    val v = trimmed.removePrefix("SHIZUWALL_GW=").trim()
+                    if (IpValidation.isValidIpv4(v)) resolvedGw = v
+                }
+            }
+        }
+        return ApplyResult(
+            success = true,
+            stealthStatus = IncomingRuleStore.StealthStatus(
+                arpBackend = arpBackend,
+                gatewayIp = resolvedGw,
+                outboundStealthActive = outboundOn
+            )
+        )
     }
 
     suspend fun teardown() {
@@ -79,7 +122,11 @@ class RootIncomingMonitor(
                         if (ignoreInitialUntil > 0L && SystemClock.elapsedRealtime() < ignoreInitialUntil) {
                             continue
                         }
-                        if (!line.contains(IncomingIptables.LOG_PREFIX)) continue
+                        if (!line.contains(IncomingIptables.LOG_PREFIX) &&
+                            !line.contains(IncomingIptables.ARP_LOG_PREFIX)
+                        ) {
+                            continue
+                        }
                         val parsed = IncomingLogParser.parseKernelLogLine(line) ?: continue
                         onPacket(parsed)
                     }

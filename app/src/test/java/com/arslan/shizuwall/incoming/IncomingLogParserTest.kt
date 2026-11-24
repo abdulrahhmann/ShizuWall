@@ -53,6 +53,16 @@ class IncomingLogParserTest {
     }
 
     @Test
+    fun parsesNftArpScanLogLine() {
+        val line = "<4>[222.111] [SHIZUWALL_ARP] IN=wlan0 OUT= MAC=ff:ff:ff:ff:ff:ff SRC=192.168.1.88 DST=192.168.1.105"
+        val parsed = IncomingLogParser.parseKernelLogLine(line)
+        assertNotNull(parsed)
+        assertEquals("192.168.1.88", parsed!!.sourceIp)
+        assertEquals(IncomingProtocol.ARP, parsed.protocol)
+        assertEquals("ARP Network Scan", parsed.discoveryLabel)
+    }
+
+    @Test
     fun ignoresUnrelatedOrMalformedLogLines() {
         assertNull(IncomingLogParser.parseKernelLogLine("audit: type=1400 avc: denied"))
         assertNull(IncomingLogParser.parseKernelLogLine("[SHIZUWALL_IN] IN=wlan0 SRC=not_an_ip PROTO=TCP"))

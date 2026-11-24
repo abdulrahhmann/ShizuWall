@@ -47,6 +47,28 @@ class IncomingIptablesTest {
         assertTrue(script.contains("iptables -w -X SHIZUWALL_IN"))
         assertTrue(script.contains("while ip6tables -w -D INPUT -j SHIZUWALL_IN6"))
         assertTrue(script.contains("ip6tables -w -X SHIZUWALL_IN6"))
+        assertTrue(script.contains("while iptables -w -D OUTPUT -j SHIZUWALL_OUT"))
+        assertTrue(script.contains("nft delete table arp shizuwall_arp"))
+        assertTrue(script.contains("arptables -X SHIZUWALL_ARP"))
+    }
+
+    @Test
+    fun stealthModeBlocksOutboundDiscoveryAndArpFromNonGatewayHosts() {
+        val allowed = IncomingRule("192.168.1.77", IncomingProtocol.ANY, null, IncomingVerdict.ALLOW, createdAt = 1L)
+        val script = IncomingIptables.buildSetupScript(
+            rules = listOf(allowed),
+            includeIpv6 = true,
+            stealthLan = true,
+            gatewayIpv4 = "192.168.1.1"
+        )
+        assertTrue(script.contains("GW=192.168.1.1"))
+        assertTrue(script.contains("nft add rule arp shizuwall_arp input arp saddr ip \$GW accept"))
+        assertTrue(script.contains("nft add rule arp shizuwall_arp input arp saddr ip 192.168.1.77 accept"))
+        assertTrue(script.contains("log prefix \"[SHIZUWALL_ARP] \" drop"))
+        assertTrue(script.contains("arptables -A SHIZUWALL_ARP --source-ip \$GW -j RETURN"))
+        assertTrue(script.contains("iptables -w -A SHIZUWALL_OUT -p udp --dport 5353 -j DROP"))
+        assertTrue(script.contains("iptables -w -A SHIZUWALL_OUT -p udp --dport 1900 -j DROP"))
+        assertTrue(script.contains("iptables -w -A SHIZUWALL_OUT -d 192.168.1.77 -j RETURN"))
     }
 
     @Test

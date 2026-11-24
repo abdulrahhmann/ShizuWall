@@ -13,6 +13,11 @@ data class ParsedIncomingPacket(
 object IncomingLogParser {
 
     fun parseKernelLogLine(line: String): ParsedIncomingPacket? {
+        val arpMarkerIdx = line.indexOf(IncomingIptables.ARP_LOG_PREFIX)
+        if (arpMarkerIdx >= 0) {
+            return parseArpLogPayload(line.substring(arpMarkerIdx + IncomingIptables.ARP_LOG_PREFIX.length).trim())
+        }
+
         val markerIdx = line.indexOf(IncomingIptables.LOG_PREFIX)
         if (markerIdx < 0) return null
 
@@ -76,6 +81,39 @@ object IncomingLogParser {
             dstPort = dpt,
             interfaceName = inIface,
             discoveryLabel = discoveryLabel
+        )
+    }
+
+    private fun parseArpLogPayload(payload: String): ParsedIncomingPacket? {
+        if (payload.isEmpty()) return null
+        var inIface: String? = null
+        var src: String? = null
+        var dst: String? = null
+
+        for (token in payload.split(' ')) {
+            val eq = token.indexOf('=')
+            if (eq <= 0 || eq == token.lastIndex) continue
+            val key = token.substring(0, eq)
+            val value = token.substring(eq + 1)
+            when (key) {
+                "IN" -> inIface = value
+                "SRC", "ARP_SRC" -> src = value
+                "DST", "ARP_DST" -> dst = value
+            }
+        }
+
+        val normalizedSrc = src?.let { IpValidation.normalizeIp(it) } ?: return null
+        if (!IpValidation.isValidIp(normalizedSrc)) return null
+        val normalizedDst = dst?.let { IpValidation.normalizeIp(it) }?.takeIf { IpValidation.isValidIp(it) }
+
+        return ParsedIncomingPacket(
+            sourceIp = normalizedSrc,
+            destIp = normalizedDst,
+            protocol = IncomingProtocol.ARP,
+            srcPort = null,
+            dstPort = null,
+            interfaceName = inIface,
+            discoveryLabel = "ARP Network Scan"
         )
     }
 }

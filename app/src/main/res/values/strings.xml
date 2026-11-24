@@ -538,7 +538,9 @@
     <string name="incoming_guard_enable">Incoming connection guard</string>
     <string name="incoming_guard_enable_desc">Notify and allow or deny unsolicited incoming connections</string>
     <string name="incoming_alert_discovery_title">Alert on LAN discovery</string>
-    <string name="incoming_alert_discovery_desc">Notify on ping, mDNS, SSDP, NetBIOS and WS-Discovery probes</string>
+    <string name="incoming_alert_discovery_desc">Notify on ping, ARP, mDNS, SSDP, NetBIOS and WS-Discovery probes</string>
+    <string name="incoming_stealth_lan_title">LAN stealth (hide from scans)</string>
+    <string name="incoming_stealth_lan_desc">Drop ARP probes from non-router devices and suppress outbound mDNS/SSDP/NetBIOS announcements</string>
     <string name="incoming_filter_ipv6_title">Filter IPv6 incoming traffic</string>
     <string name="incoming_filter_ipv6_desc">Apply ip6tables rules alongside IPv4 in Root mode</string>
     <string name="incoming_tab_activity">Activity</string>
@@ -553,10 +555,16 @@
     <string name="incoming_empty_rules">No rules saved yet. Tap Allow or Deny on a notification, or add a rule manually.</string>
     <string name="incoming_mode_root_active_title">Root enforcement active</string>
     <string name="incoming_mode_root_active_desc">Unsolicited incoming IPv4/IPv6 connections are blocked by default via iptables until you allow them.</string>
+    <string name="incoming_mode_root_active_details">Blocking unsolicited incoming connections via iptables.\n• ARP scan hiding: %1$s\n• Outbound discovery stealth: %2$s</string>
+    <string name="incoming_stealth_arp_nft">Active (nftables ARP)</string>
+    <string name="incoming_stealth_arp_legacy">Active (arptables)</string>
+    <string name="incoming_stealth_arp_unavailable">Unavailable on this kernel/network</string>
+    <string name="incoming_stealth_out_on">Active (mDNS/SSDP/NetBIOS blocked)</string>
+    <string name="incoming_stealth_out_off">Off</string>
     <string name="incoming_mode_root_ready_title">Root enforcement ready</string>
-    <string name="incoming_mode_root_ready_desc">Turn on to block unsolicited incoming connections via iptables and prompt with Allow / Deny alerts.</string>
+    <string name="incoming_mode_root_ready_desc">Turn on to block unsolicited incoming connections, hide from LAN scans via iptables/ARP stealth, and prompt with Allow / Deny alerts.</string>
     <string name="incoming_mode_monitor_active_title">LAN discovery monitor active (non-root)</string>
-    <string name="incoming_mode_monitor_active_desc">Listening for mDNS, SSDP and WS-Discovery probes on the local network. Switch Working Mode to Root to actively block packets.</string>
+    <string name="incoming_mode_monitor_active_desc">Listening for mDNS, SSDP and WS-Discovery probes only. Other devices on your network can still see this device because Android requires Root to block ARP/ICMP/TCP packets.</string>
     <string name="incoming_mode_monitor_ready_title">LAN discovery monitor (non-root)</string>
     <string name="incoming_mode_monitor_ready_desc">Without Root, ShizuWall can alert on multicast LAN discovery probes (mDNS, SSDP, WS-Discovery) but cannot block incoming packets. Switch Working Mode to Root for full blocking.</string>
     <string name="incoming_action_allow">Allow</string>
@@ -594,4 +602,6 @@
     <string name="incoming_proto_icmp">ICMP</string>
     <string name="incoming_invalid_ip">Enter a valid IPv4 or IPv6 address</string>
     <string name="incoming_invalid_port">Port must be between 1 and 65535</string>
+    <string name="use_frosted_glass">Frosted glass</string>
+    <string name="use_frosted_glass_description">Translucent glass cards over a soft blurred ambient backdrop</string>
 </resources>

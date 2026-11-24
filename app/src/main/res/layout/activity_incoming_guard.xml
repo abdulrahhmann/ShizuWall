@@ -191,6 +191,46 @@
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/rowStealthLan"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="60dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="8dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/incoming_stealth_lan_title"
+                                android:textAppearance="@style/TextAppearance.Material3.TitleMedium.Emphasized"
+                                android:textColor="?android:attr/textColorPrimary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/incoming_stealth_lan_desc"
+                                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                                android:textColor="?android:attr/textColorSecondary" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchStealthLan"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            app:thumbIcon="@drawable/check_24px"
+                            app:thumbIconTint="@color/switch_thumb_icon_tint" />
+                    </LinearLayout>
+
+                    <LinearLayout
                         android:id="@+id/rowFilterIpv6"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

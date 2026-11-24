@@ -10,9 +10,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import java.net.Inet4Address
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.arslan.shizuwall.R
@@ -95,10 +99,34 @@ class IncomingGuardService : Service() {
     @Volatile
     private var activeMode: IncomingRuleStore.GuardMode = IncomingRuleStore.GuardMode.STOPPED
 
+    @Volatile
+    private var lastKnownGatewayIpv4: String? = null
+
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
+            val gw = extractIpv4Gateway(linkProperties)
+            if (gw != lastKnownGatewayIpv4) {
+                lastKnownGatewayIpv4 = gw
+                if (activeMode == IncomingRuleStore.GuardMode.ROOT_ENFORCING) {
+                    serviceScope.launch {
+                        engineMutex.withLock {
+                            applyOrRestartEngine()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
         promoteToForeground()
+        runCatching {
+            val cm = getSystemService(ConnectivityManager::class.java)
+            lastKnownGatewayIpv4 = extractIpv4Gateway(cm?.getLinkProperties(cm.activeNetwork))
+            cm?.registerDefaultNetworkCallback(networkCallback)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -122,6 +150,9 @@ class IncomingGuardService : Service() {
     }
 
     override fun onDestroy() {
+        runCatching {
+            getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(networkCallback)
+        }
         val prevRoot = rootMonitor
         val prevMulticast = multicastMonitor
         rootMonitor = null
@@ -144,9 +175,26 @@ class IncomingGuardService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private fun currentGatewayIpv4(): String? {
+        val fresh = runCatching {
+            val cm = getSystemService(ConnectivityManager::class.java)
+            extractIpv4Gateway(cm?.getLinkProperties(cm.activeNetwork))
+        }.getOrNull()
+        if (fresh != null) lastKnownGatewayIpv4 = fresh
+        return fresh ?: lastKnownGatewayIpv4
+    }
+
+    private fun extractIpv4Gateway(linkProperties: LinkProperties?): String? {
+        val routes = linkProperties?.routes ?: return null
+        return routes.firstOrNull { it.isDefaultRoute && it.gateway is Inet4Address }
+            ?.gateway?.hostAddress
+    }
+
     private suspend fun startOrRefreshEngine() {
         val rules = IncomingRuleStore.getRules(this)
         val includeIpv6 = IncomingRuleStore.isIpv6FilteringEnabled(this)
+        val stealthLan = IncomingRuleStore.isStealthLanEnabled(this)
+        val gatewayIpv4 = currentGatewayIpv4()
         val wantRoot = WorkingMode.of(this) == WorkingMode.ROOT && RootShellExecutor.hasRootAccess()
 
         if (wantRoot) {
@@ -157,13 +205,17 @@ class IncomingGuardService : Service() {
                 handleIncomingPacket(packet, enforced = true)
             }.also { rootMonitor = it }
 
-            val applied = monitor.applyRules(rules, includeIpv6)
-            if (applied) {
+            val applyResult = monitor.applyRules(rules, includeIpv6, stealthLan, gatewayIpv4)
+            if (applyResult.success) {
                 monitor.startLogWatcher()
                 activeMode = IncomingRuleStore.GuardMode.ROOT_ENFORCING
                 IncomingRuleStore.setActiveMode(activeMode)
+                IncomingRuleStore.setStealthStatus(applyResult.stealthStatus)
                 updateStatusNotification()
-                Log.d(TAG, "Incoming guard running in ROOT_ENFORCING mode (${rules.size} rules)")
+                Log.d(
+                    TAG,
+                    "Incoming guard running in ROOT_ENFORCING mode (${rules.size} rules, arp=${applyResult.stealthStatus.arpBackend}, out=${applyResult.stealthStatus.outboundStealthActive})"
+                )
                 return
             }
             Log.w(TAG, "Root iptables apply failed; falling back to non-root multicast discovery monitor")
@@ -189,12 +241,15 @@ class IncomingGuardService : Service() {
     private suspend fun applyOrRestartEngine() {
         val rules = IncomingRuleStore.getRules(this)
         val includeIpv6 = IncomingRuleStore.isIpv6FilteringEnabled(this)
+        val stealthLan = IncomingRuleStore.isStealthLanEnabled(this)
+        val gatewayIpv4 = currentGatewayIpv4()
         val wantRoot = WorkingMode.of(this) == WorkingMode.ROOT && RootShellExecutor.hasRootAccess()
 
         val activeRoot = rootMonitor
         if (wantRoot && activeMode == IncomingRuleStore.GuardMode.ROOT_ENFORCING && activeRoot != null) {
-            val applied = activeRoot.applyRules(rules, includeIpv6)
-            if (applied) {
+            val applyResult = activeRoot.applyRules(rules, includeIpv6, stealthLan, gatewayIpv4)
+            if (applyResult.success) {
+                IncomingRuleStore.setStealthStatus(applyResult.stealthStatus)
                 updateStatusNotification()
                 return
             }

@@ -24,6 +24,7 @@ open class BaseActivity : AppCompatActivity() {
     private var currentFont: String? = null
     private var currentDynamicColor: Boolean = true
     private var currentAmoledBlack: Boolean = false
+    private var currentFrostedGlass: Boolean = true
 
     companion object {
         private var shouldAnimateFadeIn = false
@@ -47,6 +48,7 @@ open class BaseActivity : AppCompatActivity() {
         currentFont = prefs.getString(MainActivity.KEY_SELECTED_FONT, "default") ?: "default"
         currentDynamicColor = prefs.getBoolean(MainActivity.KEY_USE_DYNAMIC_COLOR, true)
         currentAmoledBlack = prefs.getBoolean(MainActivity.KEY_USE_AMOLED_BLACK, false)
+        currentFrostedGlass = prefs.getBoolean(MainActivity.KEY_USE_FROSTED_GLASS, true)
 
         val themeRes = when {
             currentAmoledBlack && currentFont == "ndot" -> R.style.Theme_ShizuWall_Amoled_Ndot
@@ -69,7 +71,7 @@ open class BaseActivity : AppCompatActivity() {
 
     protected fun setupSettingsChrome(rootId: Int, toolbar: MaterialToolbar) {
         val root = findViewById<View>(rootId)
-        if (currentAmoledBlack) root.setBackgroundColor(Color.BLACK)
+        if (currentAmoledBlack && !currentFrostedGlass) root.setBackgroundColor(Color.BLACK)
         toolbar.setNavigationOnClickListener { finish() }
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -136,6 +138,9 @@ open class BaseActivity : AppCompatActivity() {
 
     override fun onContentChanged() {
         super.onContentChanged()
+        if (currentFrostedGlass) {
+            FrostedGlass.applyToActivity(this, currentAmoledBlack)
+        }
         if (shouldAnimateFadeIn) {
             shouldAnimateFadeIn = false
             val rootView = findViewById<View>(android.R.id.content)
@@ -154,8 +159,11 @@ open class BaseActivity : AppCompatActivity() {
         val savedFont = prefs.getString(MainActivity.KEY_SELECTED_FONT, "default") ?: "default"
         val savedDynamicColor = prefs.getBoolean(MainActivity.KEY_USE_DYNAMIC_COLOR, true)
         val savedAmoledBlack = prefs.getBoolean(MainActivity.KEY_USE_AMOLED_BLACK, false)
+        val savedFrostedGlass = prefs.getBoolean(MainActivity.KEY_USE_FROSTED_GLASS, true)
 
-        if (savedFont != currentFont || savedDynamicColor != currentDynamicColor || savedAmoledBlack != currentAmoledBlack) {
+        if (savedFont != currentFont || savedDynamicColor != currentDynamicColor ||
+            savedAmoledBlack != currentAmoledBlack || savedFrostedGlass != currentFrostedGlass
+        ) {
             recreateWithAnimation()
         }
     }

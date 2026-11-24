@@ -21,13 +21,14 @@ enum class IncomingProtocol(
     TCP("TCP"),
     UDP("UDP"),
     ICMP("ICMP", isDiscovery = true),
+    ARP("ARP", isDiscovery = true),
     MDNS("mDNS", defaultPort = 5353, isDiscovery = true),
     SSDP("SSDP", defaultPort = 1900, isDiscovery = true),
     NETBIOS("NetBIOS", defaultPort = 137, isDiscovery = true),
     WSD("WS-Discovery", defaultPort = 3702, isDiscovery = true);
 
     fun iptablesProtocol(ipv6: Boolean): String? = when (this) {
-        ANY -> null
+        ANY, ARP -> null
         TCP -> "tcp"
         UDP, MDNS, SSDP, NETBIOS, WSD -> "udp"
         ICMP -> if (ipv6) "icmpv6" else "icmp"
@@ -35,7 +36,7 @@ enum class IncomingProtocol(
 
     fun supportsPort(): Boolean = when (this) {
         TCP, UDP, MDNS, SSDP, NETBIOS, WSD -> true
-        ANY, ICMP -> false
+        ANY, ICMP, ARP -> false
     }
 
     fun matches(eventProtocol: IncomingProtocol): Boolean = when (this) {

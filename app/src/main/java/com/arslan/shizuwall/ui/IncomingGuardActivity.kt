@@ -47,6 +47,8 @@ class IncomingGuardActivity : BaseActivity() {
 
     private lateinit var switchIncomingGuard: MaterialSwitch
     private lateinit var switchAlertDiscovery: MaterialSwitch
+    private lateinit var switchStealthLan: MaterialSwitch
+    private lateinit var rowStealthLan: View
     private lateinit var switchFilterIpv6: MaterialSwitch
     private lateinit var rowFilterIpv6: View
     private lateinit var tvModeTitle: TextView
@@ -91,6 +93,8 @@ class IncomingGuardActivity : BaseActivity() {
 
         switchIncomingGuard = findViewById(R.id.switchIncomingGuard)
         switchAlertDiscovery = findViewById(R.id.switchAlertDiscovery)
+        switchStealthLan = findViewById(R.id.switchStealthLan)
+        rowStealthLan = findViewById(R.id.rowStealthLan)
         switchFilterIpv6 = findViewById(R.id.switchFilterIpv6)
         rowFilterIpv6 = findViewById(R.id.rowFilterIpv6)
         tvModeTitle = findViewById(R.id.tvModeTitle)
@@ -112,18 +116,19 @@ class IncomingGuardActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         IncomingRuleStore.getRules(this)
-        updateModeBanner(IncomingRuleStore.activeMode.value)
+        updateModeBanner(IncomingRuleStore.activeMode.value, IncomingRuleStore.stealthStatus.value)
     }
 
     private fun loadInitialState() {
         suppressListeners = true
         switchIncomingGuard.isChecked = IncomingRuleStore.isEnabled(this)
         switchAlertDiscovery.isChecked = IncomingRuleStore.isDiscoveryAlertsEnabled(this)
+        switchStealthLan.isChecked = IncomingRuleStore.isStealthLanEnabled(this)
         switchFilterIpv6.isChecked = IncomingRuleStore.isIpv6FilteringEnabled(this)
         suppressListeners = false
 
         IncomingRuleStore.getRules(this)
-        updateModeBanner(IncomingRuleStore.activeMode.value)
+        updateModeBanner(IncomingRuleStore.activeMode.value, IncomingRuleStore.stealthStatus.value)
     }
 
     private fun setupListeners() {
@@ -132,12 +137,18 @@ class IncomingGuardActivity : BaseActivity() {
             if (isChecked) requestNotificationPermissionIfNeeded()
             IncomingRuleStore.setEnabled(this, isChecked)
             IncomingGuardService.sync(this)
-            updateModeBanner(IncomingRuleStore.activeMode.value)
+            updateModeBanner(IncomingRuleStore.activeMode.value, IncomingRuleStore.stealthStatus.value)
         }
 
         switchAlertDiscovery.setOnCheckedChangeListener { _, isChecked ->
             if (suppressListeners) return@setOnCheckedChangeListener
             IncomingRuleStore.setDiscoveryAlertsEnabled(this, isChecked)
+        }
+
+        switchStealthLan.setOnCheckedChangeListener { _, isChecked ->
+            if (suppressListeners) return@setOnCheckedChangeListener
+            IncomingRuleStore.setStealthLanEnabled(this, isChecked)
+            IncomingGuardService.reloadRules(this)
         }
 
         switchFilterIpv6.setOnCheckedChangeListener { _, isChecked ->
@@ -173,7 +184,7 @@ class IncomingGuardActivity : BaseActivity() {
             }
         }
 
-        listOf(switchIncomingGuard, switchAlertDiscovery, switchFilterIpv6)
+        listOf(switchIncomingGuard, switchAlertDiscovery, switchStealthLan, switchFilterIpv6)
             .forEach(::makeCardClickableForSwitch)
     }
 
@@ -194,21 +205,40 @@ class IncomingGuardActivity : BaseActivity() {
                 }
                 launch {
                     IncomingRuleStore.activeMode.collect { mode ->
-                        updateModeBanner(mode)
+                        updateModeBanner(mode, IncomingRuleStore.stealthStatus.value)
+                    }
+                }
+                launch {
+                    IncomingRuleStore.stealthStatus.collect { stealth ->
+                        updateModeBanner(IncomingRuleStore.activeMode.value, stealth)
                     }
                 }
             }
         }
     }
 
-    private fun updateModeBanner(mode: IncomingRuleStore.GuardMode) {
+    private fun updateModeBanner(
+        mode: IncomingRuleStore.GuardMode,
+        stealth: IncomingRuleStore.StealthStatus
+    ) {
         val isRootBackend = WorkingMode.of(this) == WorkingMode.ROOT
+        rowStealthLan.isVisible = isRootBackend
         rowFilterIpv6.isVisible = isRootBackend
 
         when (mode) {
             IncomingRuleStore.GuardMode.ROOT_ENFORCING -> {
                 tvModeTitle.setText(R.string.incoming_mode_root_active_title)
-                tvModeDesc.setText(R.string.incoming_mode_root_active_desc)
+                val arpLabel = when (stealth.arpBackend) {
+                    "nft" -> getString(R.string.incoming_stealth_arp_nft)
+                    "arptables" -> getString(R.string.incoming_stealth_arp_legacy)
+                    else -> getString(R.string.incoming_stealth_arp_unavailable)
+                }
+                val outLabel = if (stealth.outboundStealthActive) {
+                    getString(R.string.incoming_stealth_out_on)
+                } else {
+                    getString(R.string.incoming_stealth_out_off)
+                }
+                tvModeDesc.text = getString(R.string.incoming_mode_root_active_details, arpLabel, outLabel)
             }
             IncomingRuleStore.GuardMode.NON_ROOT_DISCOVERY_MONITOR -> {
                 tvModeTitle.setText(R.string.incoming_mode_monitor_active_title)

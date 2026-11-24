@@ -14,6 +14,7 @@ object IncomingRuleStore {
     const val KEY_INCOMING_GUARD_ENABLED = "incoming_guard_enabled"
     const val KEY_INCOMING_ALERT_DISCOVERY = "incoming_guard_alert_discovery"
     const val KEY_INCOMING_FILTER_IPV6 = "incoming_guard_filter_ipv6"
+    const val KEY_INCOMING_STEALTH_LAN = "incoming_guard_stealth_lan"
     const val KEY_INCOMING_RULES = "incoming_guard_rules_json"
 
     private const val MAX_EVENTS = 200
@@ -31,6 +32,15 @@ object IncomingRuleStore {
     private val _activeMode = MutableStateFlow(GuardMode.STOPPED)
     val activeMode: StateFlow<GuardMode> = _activeMode.asStateFlow()
 
+    data class StealthStatus(
+        val arpBackend: String? = null,
+        val gatewayIp: String? = null,
+        val outboundStealthActive: Boolean = false
+    )
+
+    private val _stealthStatus = MutableStateFlow(StealthStatus())
+    val stealthStatus: StateFlow<StealthStatus> = _stealthStatus.asStateFlow()
+
     enum class GuardMode {
         STOPPED,
         ROOT_ENFORCING,
@@ -39,6 +49,13 @@ object IncomingRuleStore {
 
     fun setActiveMode(mode: GuardMode) {
         _activeMode.value = mode
+        if (mode != GuardMode.ROOT_ENFORCING) {
+            _stealthStatus.value = StealthStatus()
+        }
+    }
+
+    fun setStealthStatus(status: StealthStatus) {
+        _stealthStatus.value = status
     }
 
     private fun prefs(context: Context): SharedPreferences =
@@ -71,6 +88,13 @@ object IncomingRuleStore {
 
     fun setIpv6FilteringEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_INCOMING_FILTER_IPV6, enabled).apply()
+    }
+
+    fun isStealthLanEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_INCOMING_STEALTH_LAN, true)
+
+    fun setStealthLanEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_INCOMING_STEALTH_LAN, enabled).apply()
     }
 
     fun getRules(context: Context): List<IncomingRule> {
