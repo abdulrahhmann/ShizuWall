@@ -15,8 +15,10 @@ import androidx.core.app.NotificationManagerCompat
 import com.arslan.shizuwall.FirewallMode
 import com.arslan.shizuwall.R
 import com.arslan.shizuwall.WorkingMode
+import com.arslan.shizuwall.incoming.IncomingRuleStore
 import com.arslan.shizuwall.services.AppMonitorService
 import com.arslan.shizuwall.services.ForegroundDetectionService
+import com.arslan.shizuwall.services.IncomingGuardService
 import com.arslan.shizuwall.shell.ShellExecutorProvider
 import com.arslan.shizuwall.ui.MainActivity
 import com.arslan.shizuwall.utils.AppKey
@@ -75,6 +77,22 @@ class BootReceiver : BroadcastReceiver() {
 
         if (floatingButtonEnabled) {
             com.arslan.shizuwall.services.FloatingButtonService.start(context)
+        }
+
+        val incomingGuardEnabled = readBoolean(
+            dpPrefs,
+            normalPrefs,
+            IncomingRuleStore.KEY_INCOMING_GUARD_ENABLED,
+            false
+        )
+        if (incomingGuardEnabled && action == Intent.ACTION_BOOT_COMPLETED) {
+            runCatching {
+                context.startForegroundService(
+                    Intent(context, IncomingGuardService::class.java).apply {
+                        this.action = IncomingGuardService.ACTION_START
+                    }
+                )
+            }
         }
 
         val rebootDetected = enabled && savedElapsed > 0L && SystemClock.elapsedRealtime() < savedElapsed

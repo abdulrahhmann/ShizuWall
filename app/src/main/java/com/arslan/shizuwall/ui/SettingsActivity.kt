@@ -26,6 +26,7 @@ import com.arslan.shizuwall.firewall.PerUidFirewall
 import com.arslan.shizuwall.services.AppMonitorService
 import com.arslan.shizuwall.services.FloatingButtonService
 import com.arslan.shizuwall.services.ForegroundDetectionService
+import com.arslan.shizuwall.services.IncomingGuardService
 import com.arslan.shizuwall.shell.RootShellExecutor
 import com.arslan.shizuwall.shell.ShellExecutorProvider
 import com.arslan.shizuwall.shizuku.ShizukuSetupActivity
@@ -113,6 +114,9 @@ class SettingsActivity : BaseActivity() {
         }
         findViewById<LinearLayout>(R.id.rowFirewall).setOnClickListener {
             startActivity(Intent(this, FirewallSettingsActivity::class.java))
+        }
+        findViewById<LinearLayout>(R.id.rowIncomingGuard).setOnClickListener {
+            startActivity(Intent(this, IncomingGuardActivity::class.java))
         }
         findViewById<LinearLayout>(R.id.rowBackend).setOnClickListener {
             startActivity(Intent(this, BackendSettingsActivity::class.java))
@@ -260,11 +264,13 @@ class SettingsActivity : BaseActivity() {
     private fun stopResetSensitiveComponents() {
         try { stopService(Intent(this, AppMonitorService::class.java)) } catch (_: Exception) {}
         try { stopService(Intent(this, ForegroundDetectionService::class.java)) } catch (_: Exception) {}
+        try { stopService(Intent(this, IncomingGuardService::class.java)) } catch (_: Exception) {}
         try { FloatingButtonService.stop(this) } catch (_: Exception) {}
         try { (getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)?.cancelAll() } catch (_: Exception) {}
     }
 
     private suspend fun performBestEffortFirewallCleanup(): Boolean {
+        IncomingGuardService.teardownRootRulesBestEffort()
         return try {
             if (!sharedPreferences.getBoolean(MainActivity.KEY_FIREWALL_ENABLED, false)) return true
 
@@ -448,6 +454,7 @@ class SettingsActivity : BaseActivity() {
                     }
                 } catch (_: Exception) {
                 }
+                runCatching { IncomingGuardService.sync(this@SettingsActivity) }
 
                 getSharedPreferences("app_prefs", MODE_PRIVATE).edit()
                     .putBoolean("onboarding_complete", true)

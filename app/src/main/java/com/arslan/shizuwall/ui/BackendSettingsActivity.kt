@@ -24,6 +24,7 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.isVisible
 import com.arslan.shizuwall.R
 import com.arslan.shizuwall.WorkingMode
+import com.arslan.shizuwall.services.IncomingGuardService
 import com.arslan.shizuwall.shell.RootShellExecutor
 import com.arslan.shizuwall.utils.FirewallUtils
 import com.google.android.material.appbar.MaterialToolbar
@@ -183,6 +184,7 @@ class BackendSettingsActivity : BaseActivity() {
     private fun commitWorkingMode(mode: WorkingMode) {
         FirewallUtils.setWorkingMode(sharedPreferences, mode)
         if (mode != WorkingMode.ROOT) RootShellExecutor.shutdown()
+        IncomingGuardService.reloadRules(this)
         if (mode == WorkingMode.VPN && !sharedPreferences.getBoolean(MainActivity.KEY_SKIP_VPN_INFO, false)) {
             val view = layoutInflater.inflate(R.layout.dialog_shizuku_prompt, null)
             view.findViewById<TextView>(R.id.shizuku_prompt_message_text).setText(R.string.vpn_mode_info)

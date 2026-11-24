@@ -11,7 +11,9 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
+import com.arslan.shizuwall.incoming.IncomingRuleStore
 import com.arslan.shizuwall.receivers.FirewallControlReceiver
+import com.arslan.shizuwall.services.IncomingGuardService
 import com.arslan.shizuwall.shizuku.ShizukuShellExecutor
 import com.arslan.shizuwall.ui.MainActivity
 import com.arslan.shizuwall.utils.FirewallUtils
@@ -29,6 +31,7 @@ class ShizuWallApp : Application() {
         super.onCreate()
         AppCompatDelegate.setDefaultNightMode(getSharedPreferences(MainActivity.PREF_NAME, Context.MODE_PRIVATE).getInt(MainActivity.KEY_NIGHT_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM))
         if (WorkingMode.of(this) == WorkingMode.VPN) FirewallVpnService.apply(this) {}
+        if (IncomingRuleStore.isEnabled(this)) runCatching { IncomingGuardService.sync(this) }
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) { startedActivities++ }
             override fun onActivityStopped(activity: Activity) { startedActivities-- }
