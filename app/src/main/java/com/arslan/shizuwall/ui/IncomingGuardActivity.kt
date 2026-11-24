@@ -388,10 +388,10 @@ class IncomingGuardActivity : BaseActivity() {
                 }
                 tvStatus.setText(statusRes)
                 val statusColorAttr = when (event.verdict) {
-                    IncomingVerdict.ALLOW -> com.google.android.material.R.attr.colorPrimary
-                    IncomingVerdict.DENY -> com.google.android.material.R.attr.colorError
+                    IncomingVerdict.ALLOW -> androidx.appcompat.R.attr.colorPrimary
+                    IncomingVerdict.DENY -> androidx.appcompat.R.attr.colorError
                     null -> if (event.enforced) {
-                        com.google.android.material.R.attr.colorError
+                        androidx.appcompat.R.attr.colorError
                     } else {
                         com.google.android.material.R.attr.colorTertiary
                     }
@@ -461,9 +461,9 @@ class IncomingGuardActivity : BaseActivity() {
                 val isAllow = rule.verdict == IncomingVerdict.ALLOW
                 ivVerdict.setImageResource(if (isAllow) R.drawable.check_24px else R.drawable.block_24px)
                 val tintAttr = if (isAllow) {
-                    com.google.android.material.R.attr.colorPrimary
+                    androidx.appcompat.R.attr.colorPrimary
                 } else {
-                    com.google.android.material.R.attr.colorError
+                    androidx.appcompat.R.attr.colorError
                 }
                 ivVerdict.setColorFilter(MaterialColors.getColor(ivVerdict, tintAttr))
 
